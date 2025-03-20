@@ -27,22 +27,28 @@
         const qiscus = new QiscusSDKCore();
         let currentRoom = null;
 
-        qiscus.init({
-            AppId: 'qchatsdk--mb42b1d3ylv', // Ganti dengan AppId Qiscus Anda
-        }).then(() => {
-            return qiscus.setUser('user1@example.com', 'password', 'User 1');
-        }).then(() => {
-            return qiscus.chatTarget('user2@example.com'); // Ganti dengan room id yang valid
-        }).then(room => {
-            console.log('Joined room:', room);
-            currentRoom = room;
-            loadMessages(room.comments);
-            document.getElementById('target-username').textContent = room.name;
-            enableInput(true);
-        }).catch(error => {
-            console.error('Error initializing Qiscus SDK:', error);
+        const appId = prompt("Please enter your Qiscus AppId:");
+        if (appId) {
+            qiscus.init({
+                AppId: appId,
+            }).then(() => {
+                return qiscus.setUser('user1@example.com', 'password', 'User 1');
+            }).then(() => {
+                return qiscus.chatTarget('user2@example.com'); // Ganti dengan room id yang valid
+            }).then(room => {
+                console.log('Joined room:', room);
+                currentRoom = room;
+                loadMessages(room.comments);
+                document.getElementById('target-username').textContent = room.name;
+                enableInput(true);
+            }).catch(error => {
+                console.error('Error initializing Qiscus SDK:', error);
+                enableInput(false);
+            });
+        } else {
+            alert("AppId is required to initialize the chat.");
             enableInput(false);
-        });
+        }
 
         function loadMessages(messages) {
             const chatBox = document.getElementById('messages');
