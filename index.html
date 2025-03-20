@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat User Target dengan Qiscus SDK</title>
+    <script src="https://unpkg.com/qiscus-sdk-core@2.12.5/dist/qiscus-sdk-core.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        #chat-container { width: 300px; margin: auto; border: 1px solid #ccc; padding: 10px; }
+        #messages { height: 300px; overflow-y: scroll; border: 1px solid #ddd; padding: 5px; }
+        #input-container { display: flex; margin-top: 10px; }
+        #message-input { flex: 1; padding: 5px; }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <h3>Chat User Target: <span id="target-username"></span></h3>
+        <div id="messages"></div>
+        <div id="input-container">
+            <input type="text" id="message-input" placeholder="Ketik pesan..." disabled>
+            <button onclick="sendMessage()" disabled>Kirim</button>
+        </div>
+    </div>
+    
+    <script>
+        const qiscus = new QiscusSDKCore();
+        let currentRoom = null;
+
+        qiscus.init({
+            AppId: 'qchatsdk--mb42b1d3ylv', // Ganti dengan AppId Qiscus Anda
+        }).then(() => {
+            return qiscus.setUser('user1@example.com', 'password', 'User 1');
+        }).then(() => {
+            return qiscus.chatTarget('user2@example.com'); // Ganti dengan room id yang valid
+        }).then(room => {
+            console.log('Joined room:', room);
+            currentRoom = room;
+            loadMessages(room.comments);
+            enableInput(true);
+        }).catch(error => {
+            console.error('Error initializing Qiscus SDK:', error);
+            enableInput(false);
+        });
+
+        function loadMessages(messages) {
+            const chatBox = document.getElementById('messages');
+            chatBox.innerHTML = '';
+            messages.forEach(msg => {
+                const messageElem = document.createElement('div');
+                messageElem.textContent = `${msg.username}: ${msg.message}`;
+                chatBox.appendChild(messageElem);
+            });
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            console.log('Sending message:', message);
+            if (message === '') return;
+            qiscus.sendComment(currentRoom.id, message).then(res => {
+                loadMessages([...currentRoom.comments, res]);
+            }).catch(error => {
+                console.error('Error sending message:', error);
+            });
+            input.value = '';
+        }
+
+        function enableInput(enable) {
+            document.getElementById('message-input').disabled = !enable;
+            document.querySelector('#input-container button').disabled = !enable;
+        }
+    </script>
+</body>
+</html>
