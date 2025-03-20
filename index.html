@@ -54,8 +54,10 @@
             const chatBox = document.getElementById('messages');
             chatBox.innerHTML = '';
             messages.forEach(msg => {
+                console.log('Message:', msg);
+                
                 const messageElem = document.createElement('div');
-                messageElem.textContent = `${msg.username}: ${msg.message}`;
+                messageElem.textContent = `${msg.username_as}: ${msg.message}`;
                 chatBox.appendChild(messageElem);
             });
         }
