@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat User Target dengan Qiscus SDK</title>
-    <script src="https://unpkg.com/qiscus-sdk-core@2.12.5/dist/qiscus-sdk-core.min.js"></script>
+    <script src="https://unpkg.com/qiscus-sdk-core"></script>
     <style>
         body { font-family: Arial, sans-serif; }
         #chat-container { width: 300px; margin: auto; border: 1px solid #ccc; padding: 10px; }
@@ -15,7 +15,7 @@
 </head>
 <body>
     <div id="chat-container">
-        <h3>Chat User Target: <span id="target-username"></span></h3>
+        <h3>Chat User Target: <span id="target-username">Loading...</span></h3>
         <div id="messages"></div>
         <div id="input-container">
             <input type="text" id="message-input" placeholder="Ketik pesan..." disabled>
@@ -37,6 +37,7 @@
             console.log('Joined room:', room);
             currentRoom = room;
             loadMessages(room.comments);
+            document.getElementById('target-username').textContent = room.name;
             enableInput(true);
         }).catch(error => {
             console.error('Error initializing Qiscus SDK:', error);
