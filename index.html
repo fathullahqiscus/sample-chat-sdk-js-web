@@ -11,9 +11,49 @@
         #messages { height: 300px; overflow-y: scroll; border: 1px solid #ddd; padding: 5px; }
         #input-container { display: flex; margin-top: 10px; }
         #message-input { flex: 1; padding: 5px; }
+        button { cursor: pointer; padding: 5px 10px; background-color: #4CAF50; color: white; border: none; }
+        button:hover { background-color: #45a049; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        
+        /* Badge styles */
+        .chat-icon {
+            position: relative;
+            display: inline-block;
+            margin: 10px;
+            cursor: pointer;
+        }
+        .chat-icon i {
+            font-size: 24px;
+            color: #4CAF50;
+        }
+        .badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: red;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .hidden {
+            display: none;
+        }
     </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
+    <!-- Chat icon with unread badge -->
+    <div class="chat-icon" id="chat-icon" onclick="toggleChatContainer()">
+        <i class="fas fa-comments"></i>
+        <span class="badge hidden" id="unread-badge">0</span>
+    </div>
+    
     <div id="chat-container">
         <h3>Chat User Target: <span id="target-username">Loading...</span></h3>
         <div id="messages"></div>
@@ -29,22 +69,48 @@
 
         const appId = prompt("Please enter your Qiscus AppId:");
         if (appId) {
-            qiscus.init({
-                AppId: appId,
-            }).then(() => {
-                return qiscus.setUser('user1@example.com', 'password', 'User 1');
-            }).then(() => {
-                return qiscus.chatTarget('user2@example.com'); // Ganti dengan room id yang valid
-            }).then(room => {
-                console.log('Joined room:', room);
-                currentRoom = room;
-                loadMessages(room.comments);
-                document.getElementById('target-username').textContent = room.name;
-                enableInput(true);
-            }).catch(error => {
-                console.error('Error initializing Qiscus SDK:', error);
+            const userEmail = prompt("Please enter your email:");
+            const userPassword = prompt("Please enter your password:");
+            const userName = prompt("Please enter your display name:");
+            
+            if (userEmail && userPassword && userName) {
+                qiscus.init({
+                    AppId: appId,
+                }).then(() => {
+                    return qiscus.setUser(userEmail, userPassword, userName);
+                }).then(() => {
+                    // Load room list first
+                    return qiscus.loadRoomList();
+                }).then(rooms => {
+                    console.log('Rooms loaded:', rooms);
+                    if (rooms && rooms.length > 0) {
+                        // Show room selection if rooms exist
+                        return showRoomSelection(rooms);
+                    } else {
+                        // If no rooms, ask for target user
+                        const targetUsername = prompt("Please enter the target username to chat with:");
+                        return qiscus.chatTarget(targetUsername);
+                    }
+                }).then(room => {
+                    console.log('Joined room:', room);
+                    currentRoom = room;
+                    loadMessages(room.comments);
+                    document.getElementById('target-username').textContent = room.name;
+                    enableInput(true);
+                    
+                    // Initialize unread badge
+                    updateUnreadBadge();
+                    
+                    // Set up interval to periodically check for new messages
+                    setInterval(updateUnreadBadge, 10000); // Check every 10 seconds
+                }).catch(error => {
+                    console.error('Error initializing Qiscus SDK:', error);
+                    enableInput(false);
+                });
+            } else {
+                alert("All fields (email, password, display name, and target username) are required to start the chat.");
                 enableInput(false);
-            });
+            }
         } else {
             alert("AppId is required to initialize the chat.");
             enableInput(false);
@@ -74,10 +140,151 @@
             });
             input.value = '';
         }
+        
+        // Add event listener for new messages
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize chat container display
+            document.getElementById('chat-container').style.display = 'block';
+            
+            // Setup new message callback to update badge
+            if (qiscus && typeof qiscus.on === 'function') {
+                qiscus.on('new-message', function(message) {
+                    // Only update badge if message is not from current user
+                    if (qiscus.userData && message.email !== qiscus.userData.email) {
+                        updateUnreadBadge();
+                    }
+                });
+            }
+        });
 
         function enableInput(enable) {
             document.getElementById('message-input').disabled = !enable;
             document.querySelector('#input-container button').disabled = !enable;
+        }
+        
+        // Function to get total unread count from all rooms
+        function getTotalUnreadCount() {
+            return new Promise((resolve, reject) => {
+                // First check if user is logged in
+                if (!qiscus.isLogin) {
+                    resolve(0);
+                    return;
+                }
+                
+                // Load room list to get unread counts
+                qiscus.loadRoomList()
+                    .then(rooms => {
+                        let totalUnread = 0;
+                        
+                        // Sum up unread counts from all rooms
+                        if (rooms && rooms.length > 0) {
+                            rooms.forEach(room => {
+                                if (room.count_notif) {
+                                    totalUnread += room.count_notif;
+                                }
+                            });
+                        }
+                        
+                        resolve(totalUnread);
+                    })
+                    .catch(error => {
+                        console.error('Error getting unread count:', error);
+                        resolve(0); // Return 0 on error
+                    });
+            });
+        }
+        
+        // Update the unread badge
+        function updateUnreadBadge() {
+            getTotalUnreadCount().then(count => {
+                const badge = document.getElementById('unread-badge');
+                if (count > 0) {
+                    badge.textContent = count > 99 ? '99+' : count;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            });
+        }
+        
+        // Toggle chat container visibility
+        function toggleChatContainer() {
+            const chatContainer = document.getElementById('chat-container');
+            if (chatContainer.style.display === 'none') {
+                chatContainer.style.display = 'block';
+                // Reset badge when opening chat
+                document.getElementById('unread-badge').classList.add('hidden');
+            } else {
+                chatContainer.style.display = 'block'; // Always show for this demo
+            }
+        }
+        
+        function showRoomSelection(rooms) {
+            return new Promise((resolve, reject) => {
+                // Create modal for room selection
+                const modal = document.createElement('div');
+                modal.style.position = 'fixed';
+                modal.style.top = '0';
+                modal.style.left = '0';
+                modal.style.width = '100%';
+                modal.style.height = '100%';
+                modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                modal.style.display = 'flex';
+                modal.style.justifyContent = 'center';
+                modal.style.alignItems = 'center';
+                modal.style.zIndex = '1000';
+                
+                const modalContent = document.createElement('div');
+                modalContent.style.backgroundColor = 'white';
+                modalContent.style.padding = '20px';
+                modalContent.style.borderRadius = '5px';
+                modalContent.style.maxWidth = '80%';
+                modalContent.style.maxHeight = '80%';
+                modalContent.style.overflow = 'auto';
+                
+                const title = document.createElement('h3');
+                title.textContent = 'Select a Room';
+                modalContent.appendChild(title);
+                
+                const roomList = document.createElement('div');
+                rooms.forEach(room => {
+                    const roomItem = document.createElement('div');
+                    roomItem.style.padding = '10px';
+                    roomItem.style.margin = '5px 0';
+                    roomItem.style.border = '1px solid #ddd';
+                    roomItem.style.cursor = 'pointer';
+                    roomItem.textContent = room.name || 'Room ' + room.id;
+                    
+                    roomItem.addEventListener('click', () => {
+                        document.body.removeChild(modal);
+                        qiscus.getRoomById(room.id)
+                            .then(selectedRoom => resolve(selectedRoom))
+                            .catch(err => reject(err));
+                    });
+                    
+                    roomList.appendChild(roomItem);
+                });
+                modalContent.appendChild(roomList);
+                
+                const newChatButton = document.createElement('button');
+                newChatButton.textContent = 'Start New Chat';
+                newChatButton.style.marginTop = '15px';
+                newChatButton.addEventListener('click', () => {
+                    document.body.removeChild(modal);
+                    const newTarget = prompt('Enter username to chat with:');
+                    if (newTarget) {
+                        qiscus.chatTarget(newTarget)
+                            .then(newRoom => resolve(newRoom))
+                            .catch(err => reject(err));
+                    } else {
+                        reject(new Error('No target username provided'));
+                    }
+                });
+                modalContent.appendChild(newChatButton);
+                
+                modal.appendChild(modalContent);
+                document.body.appendChild(modal);
+            });
         }
     </script>
 </body>
